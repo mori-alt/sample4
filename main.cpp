@@ -40,6 +40,15 @@ struct RectangleObj {
     bool is_light;
 };
 
+// 三角形の構造決定
+struct TriangleObj {
+    Eigen::Vector3d v1;
+    Eigen::Vector3d v2;
+    Eigen::Vector3d v3;
+    Eigen::Vector3d n;
+    Eigen::Vector3d color;
+};
+
 // 無限遠点の決定
 const double __FAR__ = 1.0e33;
 
@@ -63,6 +72,7 @@ double g_FrameSize_WindowSize_Scale_y = 1.0;
 Camera g_Camera;
 
 RectangleObj rects[2];
+TriangleObj tris[1];
 
 constexpr int LIGHT_RECTANGLE_INDEX = 1;
 
@@ -136,6 +146,18 @@ void makeRectangle(const Eigen::Vector3d &centerPos, const Eigen::Vector3d &widt
     const Eigen::Vector3d v3 = centerPos - widthVec + heightVec;
 
     out_Rect.n = ((v1 - v3).cross(v2 - v3)).normalized();
+}
+
+void makeTriangle(const Eigen::Vector3d &v1, const Eigen::Vector3d &v2, const Eigen::Vector3d &v3,
+                   const Eigen::Vector3d &color, TriangleObj &out_Tri) {
+    out_Tri.v1 = v1;
+    out_Tri.v2 = v2;
+    out_Tri.v3 = v3;
+    out_Tri.color = color;
+
+    // 法線計算　ワンチャン怪しい
+    // 法線はこっち向いてることにしてる
+    out_Tri.n = ((v2 - v1).cross(v3 - v1)).normalized();
 }
 
 // 近い面の計算
@@ -236,7 +258,7 @@ void Learn() {
                     // 拡散面の
                     Eigen::Vector3d x = ray.o + ray_hit.t * ray.d;
                     // サンプル数
-                    const int n = 1000;
+                    const int n = 10;
                     Ray _ray;
                     RayHit _ray_hit;
                     Eigen::Vector3d count{0, 0, 0}; // 光を積もらせる
@@ -298,6 +320,17 @@ void Learn() {
     }
     updateFilm();
     glutPostRedisplay();
+}
+
+void drawTriangleObj(const TriangleObj &rect) {
+    glBegin(GL_TRIANGLES);
+    glColor3f(rect.color(0), rect.color(1), rect.color(2));
+
+    glVertex3f(rect.v1.x(), rect.v1.y(), rect.v1.z());
+    glVertex3f(rect.v2.x(), rect.v2.y(), rect.v2.z());
+    glVertex3f(rect.v3.x(), rect.v3.y(), rect.v3.z());
+
+    glEnd();
 }
 
 void drawRectangleObj(const RectangleObj &rect) {
@@ -399,7 +432,7 @@ void drawFloor() {
 void display() {
     glViewport(0, 0, width * g_FrameSize_WindowSize_Scale_x, height * g_FrameSize_WindowSize_Scale_y);
 
-    glClearColor(1.0, 1.0, 1.0, 0.0);
+    glClearColor(1.0, 0.5, 1.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     projection_and_modelview(g_Camera);
@@ -414,6 +447,7 @@ void display() {
 
     drawRectangleObj(rects[0]);
     drawRectangleObj(rects[1]);
+    drawTriangleObj(tris[0]);
 
     glDisable(GL_DEPTH_TEST);
 
@@ -446,12 +480,12 @@ int main(int argc, char *argv[]) {
 
     // 引数1つ目がセンターポジション　二つ目が横幅　3つ目が立幅　4つ目が色指定 5つ目は識別番号
     // kd　は拡散面の色によって定義される　面の色の最大値をとることが多いらしい
-    makeRectangle(Eigen::Vector3d{0.0, 0.0, -1.0}, Eigen::Vector3d{1.0, 0.0, 0.0}, Eigen::Vector3d{0.0, 0.0, -1.0},
-                  Eigen::Vector3d{1.0, 0.00, 0.00}, rects[0]);
-    makeRectangle(Eigen::Vector3d{0.0, 1.0, -2.0}, Eigen::Vector3d{1.0, 0.0, 0.0}, Eigen::Vector3d{0.0, 1.0, 0.0},
-                  Eigen::Vector3d{0.90, 0.90, 0.90}, rects[1]);
-    rects[0].is_light = false;
-    rects[1].is_light = true;
+    //makeRectangle(Eigen::Vector3d{0.0, 0.0, -1.0}, Eigen::Vector3d{1.0, 0.0, 0.0}, Eigen::Vector3d{0.0, 0.0, -1.0},
+    //              Eigen::Vector3d{1.0, 0.00, 0.00}, rects[0]);
+    makeTriangle(Eigen::Vector3d{0.0, 0.0, -1.0}, Eigen::Vector3d{1.0, 0.0, 0.0}, Eigen::Vector3d{0.0, 0.0, 1.0}, Eigen::Vector3d{1.0, 0.00, 0.00}, tris[0]);
+    makeRectangle(Eigen::Vector3d{0.0, 1.0, -2.0}, Eigen::Vector3d{1.0, 0.0, 0.0}, Eigen::Vector3d{0.0, 1.0, 0.0},Eigen::Vector3d{0.90, 0.90, 0.90}, rects[0]);
+    rects[1].is_light = false;
+    rects[0].is_light = true;
 
     srand(time(NULL));
 
